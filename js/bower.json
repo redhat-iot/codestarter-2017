@@ -1,0 +1,13 @@
+{
+  "name": "iot-codestarter-demo",
+  "description": "Red Hat Eurotech IoT Codestarter demo",
+  "authors": [
+    "Red Hat"
+  ],
+  "license": "Apache-2.0",
+  "private": true,
+  "devDependencies": {
+    "protobuf": "6.6.3",
+    "paho-mqtt-js": "1.0.1"
+  }
+}
