@@ -3,6 +3,7 @@ package com.redhat.iot.codestarter.service;
 import org.eclipse.kura.core.message.protobuf.KuraPayloadProto;
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.json.JSONObject;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Initialized;
@@ -15,7 +16,7 @@ public class SensorService implements MqttCallback {
     private final String BROKER_USERNAME = System.getenv("BROKER_USERNAME");
     private final String BROKER_PASSWORD = System.getenv("BROKER_PASSWORD");
     private final String BROKER_TOPIC_PREFIX = System.getenv("BROKER_TOPIC_PREFIX");
-    private final String CLIENT_ID = "demo-client-" + Math.floor(Math.random() * 100000);
+    private final String CLIENT_ID = "demo-client-" + Math.round(Math.random() * 100000);
     private final MemoryPersistence PERSISTENCE = new MemoryPersistence();
     private MqttClient mqttClient;
 
@@ -43,8 +44,8 @@ public class SensorService implements MqttCallback {
             mqttClient.connect(connOpts);
             System.out.println("Connected");
             mqttClient.setCallback(this);
-            mqttClient.subscribe(BROKER_TOPIC_PREFIX + "/+/+");
-            System.out.println("Subscribed");
+            mqttClient.subscribe(BROKER_TOPIC_PREFIX + "/#");
+            System.out.println("Subscribed to " + BROKER_TOPIC_PREFIX + "/#");
         } catch (Exception me) {
             System.out.println("Could not connect to " + BROKER_URL);
             System.out.println("msg " + me.getMessage());
@@ -76,17 +77,27 @@ public class SensorService implements MqttCallback {
         //
         // Decoding Kura payloads using Google protobuf
         //
-        KuraPayloadProto.KuraPayload kuraPayload = KuraPayloadProto.KuraPayload.parseFrom(mqttMessage.getPayload());
-        for (KuraPayloadProto.KuraPayload.KuraMetric metric : kuraPayload.getMetricList()) {
-            System.out.println("Kura metric: name: " + metric.getName() + " double value: " + metric.getDoubleValue());
+
+        try {
+            KuraPayloadProto.KuraPayload kuraPayload = KuraPayloadProto.KuraPayload.parseFrom(mqttMessage.getPayload());
+            for (KuraPayloadProto.KuraPayload.KuraMetric metric : kuraPayload.getMetricList()) {
+                System.out.println("Kura metric: name: " + metric.getName() + " double value: " + metric.getDoubleValue());
+            }
+
+        } catch (Exception ex) {
+            System.out.println("Error while trying to decode potential Kura payload: " + ex);
         }
         //
         // Decoding JSON payloads
         //
-        //        JSONObject j = new JSONObject(payload);
-        //        for (String k : j.keySet()) {
-        //            System.out.println("Key: " + k + " Value: " + j.get(k));
-        //        }
+        try {
+            JSONObject j = new JSONObject(payload);
+            for (String k : j.keySet()) {
+                System.out.println("Key: " + k + " Value: " + j.get(k));
+            }
+        } catch (Exception ex) {
+            System.out.println("Error while trying to decode potential JSON payload: " + ex);
+        }
 
     }
 
