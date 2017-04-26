@@ -5,111 +5,129 @@
     <title>Red Hat Eurotech IoT Codestarter Demo app</title>
 
     <!-- MQTT and websockets -->
-    <script src="/bower_components/paho-mqtt-js/mqttws31.js" type="text/javascript"></script>
-    <script src="/bower_components/protobuf/dist/protobuf.min.js"></script>
+    <script type="text/javascript" src="/bower_components/paho-mqtt-js/mqttws31.js"></script>
+    <script type="text/javascript" src="/bower_components/protobuf/dist/protobuf.min.js"></script>
+
+    <script type="text/javascript" src="utils.js"></script>
 
 </head>
-<body>
+<body onload="init()">
 
-<h1>Received Metrics:</h1>
-<div style="max-height: 500px; overflow: scroll" id="telemetry">
+<h1>Red Hat Eurotech IoT Codestarter Demo app</h1>
+<hr>
+<div id="status">
+    Starting up...
+</div>
+<div style="color: yellow; background-color: gray; height: 200px; max-height: 300px; overflow: scroll" id="telemetry">
 </div>
 
 <script type="text/javascript">
 
     var msgproto = null;
     var div = document.getElementById('telemetry');
+    var statusdiv = document.getElementById('status');
+    var config = {};
+    var client = null;
 
-    function fetchJSONFile(path, callback) {
-        var httpRequest = new XMLHttpRequest();
-        httpRequest.onreadystatechange = function () {
-            if (httpRequest.readyState === 4) {
-                if (httpRequest.status === 200) {
-                    var data = JSON.parse(httpRequest.responseText);
-                    if (callback) callback(data);
-                } else {
-                    alert("cannot load " + path);
-                }
-            }
-        };
-        httpRequest.open('GET', path);
-        httpRequest.send();
+    function addStatus(msg) {
+        statusdiv.innerHTML += ("<br>" + msg);
     }
 
-    function guid() {
-        function s4() {
-            return Math.floor((1 + Math.random()) * 0x10000)
-                .toString(16)
-                .substring(1);
+    function addMessage(msg) {
+        div.innerHTML += ("<br>" + msg);
+    }
+
+    function addMetricMessage(metrics) {
+        div.innerHTML += "<ul>";
+        metrics.forEach(function (metric) {
+            div.innerHTML += ("<li>Name: <code>"+ metric.name + "</code>" +
+            " Type: <code>" + metric.type + "</code>" +
+            " Double value: <code>" + metric.doubleValue + "</code></li>");
+        });
+        div.innerHTML += "</ul>";
+    }
+
+    function onMessageArrived(message) {
+        var destination = message.destinationName;
+        var payload = message.payloadBytes;
+        var decoded = null;
+
+        try {
+            decoded = msgproto.decode(payload);
+        } catch (e) {
         }
 
-        return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
-            s4() + '-' + s4() + s4() + s4();
+        if (decoded) {
+            var timestamp = new Date(decoded.timestamp);
+            addMessage("Received new Kura metrics at " + timestamp + " on topic:" + destination);
+            addMetricMessage(decoded.metric);
+        } else {
+            var payloadStr = message.payloadString;
+            addMessage("Received new message on topic:" + destination + ": <code>" + payloadStr + "</code>");
+        }
     }
 
-    protobuf.load("kurapayload.proto", function (err, root) {
-        if (err) throw err;
-        fetchJSONFile("/config.json", function (configResult) {
-            config = configResult;
-            console.log("Config: " + JSON.stringify(config));
-            client = new Paho.MQTT.Client(config.BROKER_HOSTNAME, config.BROKER_PORT, "demo-client-" + guid());
+    function connectSuccess() {
+        addStatus("Connected to broker " + config.BROKER_HOSTNAME);
+        addStatus("Using topic prefix: " + config.BROKER_TOPIC_PREFIX);
 
-            client.onMessageArrived = function (message) {
-                var destination = message.destinationName;
-                var payload = message.payloadBytes;
-                var decoded = msgproto.decode(payload);
-                var timestamp = new Date(decoded.timestamp);
+        var topicName = config.BROKER_TOPIC_PREFIX + "/#";
+        client.subscribe(topicName);
+        addStatus("Subscribed to: " + topicName);
 
-                div.innerHTML += ("<p>Recieved new metrics at " + timestamp + ":</p><ul>");
-                decoded.metric.forEach(function (metric) {
-                    div.innerHTML += ("<li>Name:" + metric.name + " Type: " + metric.type + " Double value: " + metric.doubleValue + "</li>");
-                });
-                div.innerHTML += ("</ul>");
+        // send some JSON back to a topic
+        var message = new Paho.MQTT.Message(JSON.stringify({
+            hello: "world"
+        }));
+        message.destinationName = config.BROKER_TOPIC_PREFIX + "/hello";
+        addStatus("Sending example message...");
+        client.send(message);
+
+        // send back a Kura payload by encoding it with protobuf
+        var hitemp =
+            {
+                timestamp: new Date().getTime(),
+                metric: [
+                    {
+                        name: 'temp',
+                        type: 'DOUBLE',
+                        doubleValue: 265
+                    }
+                ]
             };
 
-            msgproto = root.lookup("kuradatatypes.KuraPayload");
-            // connect the client
-            client.connect({
-                onSuccess: function () {
-                    console.log("connected to broker: " + config.BROKER_HOSTNAME);
-                    div.innerHTML += ("<p><strong>Connected to broker " + config.BROKER_HOSTNAME + "</strong></p>");
-                    var topicName = config.BROKER_TOPIC_PREFIX + "/#";
-                    client.subscribe(topicName);
+        var payload = msgproto.encode(hitemp).finish();
+        message = new Paho.MQTT.Message(payload);
+        message.destinationName = config.BROKER_TOPIC_PREFIX + "/metrics";
+        client.send(message);
+    }
 
-                    // send some JSON back to a topic
-                    var message = new Paho.MQTT.Message(JSON.stringify({
-                        hello: "world"
-                    }));
-                    message.destinationName = config.BROKER_TOPIC_PREFIX + "/hello";
-                    client.send(message);
+    function init() {
+        protobuf.load("kurapayload.proto", function (err, root) {
+            if (err) throw err;
+            UTILS.fetchJSONFile("/config.json", function (configResult) {
+                config = configResult;
+                addStatus("Connecting to " + config.BROKER_HOSTNAME + ":" + config.BROKER_PORT);
 
-                    // send back a Kura payload by encoding it with protobuf
-                    var hitemp =
-                        {
-                            timestamp: new Date().getTime(),
-                            metric: [
-                                {
-                                    name: 'temp',
-                                    type: 'DOUBLE',
-                                    doubleValue: 265
-                                }
-                            ]
-                        };
+                client = new Paho.MQTT.Client(config.BROKER_HOSTNAME, parseInt(config.BROKER_PORT, 10), "demo-client-" + UTILS.guid());
 
-                    var payload = msgproto.encode(hitemp).finish();
-                    message = new Paho.MQTT.Message(payload);
-                    message.destinationName = config.BROKER_TOPIC_PREFIX + "/metrics";
-                    client.send(message);
-                },
-                userName: config.BROKER_USERNAME,
-                password: config.BROKER_PASSWORD,
-                onFailure: function (err) {
-                    alert("Failed to connect to broker " + config.BROKER_HOSTNAME + ':' + config.BROKER_PORT+ ": Error code:" + err.errorCode + " message:" + err.errorMessage);
-                }
+                client.onMessageArrived = onMessageArrived;
+
+                msgproto = root.lookup("kuradatatypes.KuraPayload");
+                // connect the client
+                client.connect({
+                    onSuccess: connectSuccess,
+                    userName: config.BROKER_USERNAME,
+                    password: config.BROKER_PASSWORD,
+                    onFailure: function (err) {
+                        addStatus("Failed to connect to broker " + config.BROKER_HOSTNAME + ':' + config.BROKER_PORT+ ": Error code:" + err.errorCode + " message:" + err.errorMessage + "</em>");
+                    }
+                });
             });
+
         });
 
-    });
+    }
 
 
 </script>

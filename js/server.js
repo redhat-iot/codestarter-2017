@@ -25,6 +25,7 @@ app.use('/node_modules', express.static(path.join(__dirname, '/node_modules')));
 
 http.createServer(app).listen(port);
 
+console.log("Config: " + JSON.stringify(appConfig));
 console.log('HTTP Server running on http://%s:%s', ip, port);
 
 module.exports = app;
