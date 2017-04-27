@@ -8,7 +8,10 @@
 
 <body>
 <h1>Red Hat Eurotech IoT Codestarter demo</h1>
-
+<ul>
+	<em>BROKER_HOST: <code><%= System.getenv("BROKER_HOST")%></code></em>
+	<em>BROKER_PORT: <code><%= System.getenv("BROKER_PORT")%></code></em>
+</ul>
 <div id="status">
 	<%
 		String status = request.getParameter("status");
@@ -21,7 +24,7 @@
 <form action="/api/iot/publish" method="post">
 	<div>
 		<label for="topic">Topic</label>
-		<input name="topic" id="topic" value="/some/mqtt/topic">
+		<input name="topic" id="topic" value="<%= System.getenv("BROKER_TOPIC_PREFIX") %>">
 	</div>
 	<div>
 		<label for="message">Message</label>
