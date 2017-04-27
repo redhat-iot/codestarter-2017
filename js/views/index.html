@@ -23,6 +23,8 @@
 
 <script type="text/javascript">
 
+    var msgCount = 0;
+    var MAX_MESSAGES = 100;
     var msgproto = null;
     var div = document.getElementById('telemetry');
     var statusdiv = document.getElementById('status');
@@ -48,10 +50,16 @@
     }
 
     function onMessageArrived(message) {
+        msgCount++;
+        if (msgCount > MAX_MESSAGES) {
+            var topicName = config.BROKER_TOPIC_PREFIX + "/#";
+            client.unsubscribe(topicName);
+            addStatus("Received " + MAX_MESSAGES + ", stopping....");
+            return;
+        }
         var destination = message.destinationName;
         var payload = message.payloadBytes;
         var decoded = null;
-
         try {
             decoded = msgproto.decode(payload);
         } catch (e) {
