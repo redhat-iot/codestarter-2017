@@ -15,9 +15,23 @@
 
 <h1>Red Hat Eurotech IoT Codestarter Demo app</h1>
 <hr>
-<div id="status">
+<div style="color: white; background-color: darkslategray; height: 100px; max-height: 100px; overflow: scroll" id="status">
     Starting up...
 </div>
+<br>
+<br>
+<label for="topic">Topic to Publish To: </label>
+<input style="width: 400px" type="text" id="topic" name="topic" value="/Some/Topic">
+<br>
+<br>
+<label for="payload">Payload to publish: </label>
+<textarea rows="10" cols="80" name="payload" id="payload">{&quot;hello&quot;: &quot;world&quot;}</textarea>
+
+<br>
+<br>
+<button onclick="publishMessage();">Publish Message</button>
+<br>
+<br>
 <div style="color: yellow; background-color: gray; height: 200px; max-height: 300px; overflow: scroll" id="telemetry">
 </div>
 
@@ -32,11 +46,23 @@
     var client = null;
 
     function addStatus(msg, urgent) {
+        statusdiv.innerHTML += '<br>+ ';
         if (urgent) {
-            statusdiv.innerHTML += ('<br><span style="color: red">' + msg + '</span>');
+            statusdiv.innerHTML += ('<span style="color: red">' + msg + '</span>');
         } else {
-            statusdiv.innerHTML += ("<br>" + msg);
+            statusdiv.innerHTML += (msg);
         }
+        // scroll to last added message
+        statusdiv.scrollTop = statusdiv.scrollHeight;
+    }
+
+    function publishMessage() {
+        var topic = document.getElementById("topic").value;
+        var payload = document.getElementById("payload").value;
+        var message = new Paho.MQTT.Message(payload);
+        message.destinationName = topic;
+        addStatus("Sending test message...");
+        client.send(message);
     }
 
     function addMessage(msg) {
@@ -136,13 +162,17 @@
     }
 
     function init() {
+
         protobuf.load("kurapayload.proto", function (err, root) {
             if (err) throw err;
             UTILS.fetchJSONFile("/config.json", function (configResult) {
                 config = configResult;
+                document.getElementById("topic").value = config.BROKER_TOPIC_PREFIX;
                 addStatus("Connecting to " + config.BROKER_HOSTNAME + ":" + config.BROKER_PORT);
 
-                client = new Paho.MQTT.Client(config.BROKER_HOSTNAME, parseInt(config.BROKER_PORT, 10), "demo-client-" + UTILS.guid());
+                client = new Paho.MQTT.Client(config.BROKER_HOSTNAME,
+                                              parseInt(config.BROKER_PORT, 10),
+                                              "demo-client-" + UTILS.guid());
 
                 client.onMessageArrived = onMessageArrived;
 
