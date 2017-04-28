@@ -31,8 +31,12 @@
     var config = {};
     var client = null;
 
-    function addStatus(msg) {
-        statusdiv.innerHTML += ("<br>" + msg);
+    function addStatus(msg, urgent) {
+        if (urgent) {
+            statusdiv.innerHTML += ('<br><span style="color: red">' + msg + '</span>');
+        } else {
+            statusdiv.innerHTML += ("<br>" + msg);
+        }
     }
 
     function addMessage(msg) {
@@ -54,7 +58,7 @@
         if (msgCount > MAX_MESSAGES) {
             var topicName = config.BROKER_TOPIC_PREFIX + "/#";
             client.unsubscribe(topicName);
-            addStatus("Received " + MAX_MESSAGES + ", stopping....");
+            addStatus("Received " + MAX_MESSAGES + ", stopping....", true);
             return;
         }
         var destination = message.destinationName;
@@ -110,6 +114,27 @@
         client.send(message);
     }
 
+    function onAuthSuccess(auth) {
+        addStatus("Successfully authenticated to " + config.API_HOSTNAME);
+        addStatus("Auth token: " + auth.tokenId);
+
+        // get some historical data
+        var path = 'http://' + config.API_HOSTNAME + ':' + config.API_PORT;
+        var apiPath = '/v1/' + auth.scopeId + '/data/metrics';
+        var params = {
+            offset: 0, limit: 10
+        };
+
+        addStatus("Retrieving historical metrics at " + path + "using API " + apiPath + " and params: " + JSON.stringify(params));
+
+        UTILS.kapuaApi(path, apiPath, 'GET', params, null, auth, function(result) {
+                addStatus("Received data: " + JSON.stringify(result));
+            }, function(err) {
+                addStatus("error retrieving metrics: " + err, true);
+            }
+        );
+    }
+
     function init() {
         protobuf.load("kurapayload.proto", function (err, root) {
             if (err) throw err;
@@ -128,9 +153,14 @@
                     userName: config.BROKER_USERNAME,
                     password: config.BROKER_PASSWORD,
                     onFailure: function (err) {
-                        addStatus("Failed to connect to broker " + config.BROKER_HOSTNAME + ':' + config.BROKER_PORT+ ": Error code:" + err.errorCode + " message:" + err.errorMessage + "</em>");
+                        addStatus("Failed to connect to broker " + config.BROKER_HOSTNAME + ':' + config.BROKER_PORT+ ": Error code:" + err.errorCode + " message:" + err.errorMessage + "</em>", true);
                     }
                 });
+
+                // authenticate to the API
+                addStatus("Authenticating to API " + config.API_HOSTNAME + ":" + config.API_PORT);
+                UTILS.kapuaAuth('http://' + config.API_HOSTNAME + ':' + config.API_PORT,
+                    'demo-gw2', 'RedHat123', onAuthSuccess, function(err) { addStatus( "cannot authenticate: " + err, true);});
             });
 
         });
