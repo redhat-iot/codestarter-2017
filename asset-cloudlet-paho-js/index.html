@@ -1,0 +1,61 @@
+<html>
+<head>
+  <script src="js/mqttws31.js"></script>
+  <script src="js/es6-promise.min.js"></script>
+  <script src="js/protobuf.min.js"></script>
+  <script src="js/pako.min.js"></script>
+  <script src="js/kura-payload.js"></script>
+  <script src="js/cloudlet.js"></script>
+  <script src="js/asset-cloudlet.js"></script>
+</head>
+<body>
+  <script>
+  var cloudlet = new AssetCloudlet({
+    hostname: 'broker-redhat-iot.codestarter.rhiot.org', // Kapua broker hostname
+    username: 'demo-gw2',
+    password: 'RedHat123',
+    clientId: 'rpi3', // client id of the target device
+    port: 80 // WebSocket port of the Kapua broker
+  })
+  cloudlet.connect()
+  .then(function () {
+    console.log('connected')
+    return cloudlet.getAssetMetadata()
+  })
+  .then(function (msg) {
+    console.log(JSON.stringify(msg, null, 2))
+    return cloudlet.read()
+  })
+  .then(function (msg) {
+    console.log(JSON.stringify(msg, null, 2))
+    return cloudlet.write([
+      {
+        name: 'opcuaAsset',
+        channels: [{
+          name: 'fan',
+          type: 'INTEGER',
+          value: '1'
+        }]
+      }
+    ])
+  })
+  .then(function (msg) {
+    console.log(JSON.stringify(msg, null, 2))
+    return cloudlet.read([
+      {
+        name: 'opcuaAsset',
+        channels: [
+          { name: 'fan' }
+        ]
+      }
+    ])
+  })
+  .then(function (msg) {
+    console.log(JSON.stringify(msg, null, 2))
+  })
+  .catch(function (err) {
+    console.log(err)
+  })
+  </script>
+</body>
+</html>
