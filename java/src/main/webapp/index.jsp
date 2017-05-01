@@ -9,7 +9,7 @@
 <body>
 <h1>Red Hat Eurotech IoT Codestarter demo</h1>
 <ul>
-	<em>BROKER_HOST: <code><%= System.getenv("BROKER_HOST")%></code></em>
+	<em>BROKER_HOST: <code><%= System.getenv("BROKER_HOSTNAME")%></code></em>
 	<em>BROKER_PORT: <code><%= System.getenv("BROKER_PORT")%></code></em>
 </ul>
 <div id="status">
