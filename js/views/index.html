@@ -100,8 +100,13 @@
             addMessage("Received new Kura metrics at " + timestamp + " on topic:" + destination);
             addMetricMessage(decoded.metric);
         } else {
-            var payloadStr = message.payloadString;
-            addMessage("Received new message on topic:" + destination + ": <code>" + payloadStr + "</code>");
+            try {
+                var payloadStr = message.payloadString;
+                addMessage("Received new message on topic:" + destination + ": <code>" + payloadStr + "</code>");
+            } catch(err) {
+                // payload is probably opaque binary (e.g gzip)
+                addMessage("Received new message on topic:" + destination + ": <code>" + message.payloadBytes + "</code>");
+            }
         }
     }
 
@@ -140,6 +145,12 @@
         client.send(message);
     }
 
+    function onConnectionLost(err) {
+        addStatus("Lost connection to broker: " + config.BROKER_HOSTNAME);
+        addStatus("Error code: " + err.errorCode);
+        addStatus("Error message: " + err.errorMessage);
+    }
+
     function onAuthSuccess(auth) {
         addStatus("Successfully authenticated to " + config.API_HOSTNAME);
         addStatus("Auth token: " + auth.tokenId);
@@ -175,6 +186,7 @@
                                               "demo-client-" + UTILS.guid());
 
                 client.onMessageArrived = onMessageArrived;
+                client.onConnectionLost = onConnectionLost;
 
                 msgproto = root.lookup("kuradatatypes.KuraPayload");
                 // connect the client
